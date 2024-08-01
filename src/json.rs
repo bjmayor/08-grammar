@@ -83,11 +83,24 @@ fn parse_num(input: &mut &str) -> PResult<Num> {
     if ret.is_ok() {
         let frac = digit1.parse_to::<i64>().parse_next(input)?;
         let v = format!("{}.{}", num, frac).parse::<f64>().unwrap();
-        Ok(if sign {
-            Num::Float(-v as _)
+
+        let e: Result<(), ErrMode<ContextError>> = "e".value(()).parse_next(input);
+        if e.is_ok() {
+            let sign = opt("-").map(|s| s.is_some()).parse_next(input)?;
+            let exp = digit1.parse_to::<i64>().parse_next(input)?;
+            let v = v * 10_f64.powi(exp as i32);
+            Ok(if sign {
+                Num::Float(-v as _)
+            } else {
+                Num::Float(v as _)
+            })
         } else {
-            Num::Float(v as _)
-        })
+            Ok(if sign {
+                Num::Float(-v as _)
+            } else {
+                Num::Float(v as _)
+            })
+        }
     } else {
         Ok(if sign { Num::Int(-num) } else { Num::Int(num) })
     }
@@ -172,6 +185,10 @@ mod tests {
         let input = "-123.456";
         let result = parse_num(&mut (&*input))?;
         assert_eq!(result, Num::Float(-123.456));
+        // add 科学计算法的 test case
+        let input = "1.23e2";
+        let result = parse_num(&mut (&*input))?;
+        assert_eq!(result, Num::Float(123.0));
 
         Ok(())
     }
